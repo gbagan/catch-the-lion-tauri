@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-size: 1vmax;
+}
+
+@layer components {
+  .btn {
+    @apply
+      px-4 py-2 text-sm font-medium text-gray-700 bg-transparent border border-gray-800
+      hover:bg-yellow-300 hover:bg-opacity-50 hover:text-blue-700
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .togglebtn {
+    @apply px-4 py-2 text-sm font-medium text-gray-700 border border-gray-800;
+  }
+
+  .toggledbtn {
+    @apply bg-yellow-300 bg-opacity-50;
+  }
+
+  .dialog {
+    @apply
+      block bg-board rounded-lg shadow backdrop:bg-gray-500 backdrop:bg-opacity-70;
+  }
+
+  .dialog:not([open]) {
+    @apply pointer-events-none opacity-0;
+  }
+  
+  .dialog[open] {
+    @apply animate-flip-y;
+  }
+
+  .dialog-title {
+    @apply p-4 min-h-8 border-b-2 border-black text-4xl font-medium;
+  }
+
+  .dialog-body {
+    @apply p-10 border-black border-b-2;
+  }
+
+  .dialog-buttons {
+    @apply p-4 flex justify-end gap-4;
+  }
+
+  .tooltip {
+    @apply bg-white absolute text-center rounded-xl
+      px-2 py-1 mb-4 w-96
+      bottom-full transition-opacity duration-500;
+  }
+
+  .tooltip::after {
+    @apply absolute border-8 top-full left-[60%] ml-3 content-[""] border-transparent border-t-white;
+  }
+
+  .tutorial-button {
+    @apply py-2.5 px-5 me-2 mb-2 text-sm font-medium text-gray-900 
+     bg-white rounded-lg border border-gray-200 
+    hover:bg-gray-100 hover:text-blue-700
+    focus:z-10 focus:ring-4 focus:ring-gray-100 focus:outline-none;
+  }
+}

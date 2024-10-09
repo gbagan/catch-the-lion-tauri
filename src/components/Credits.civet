@@ -1,0 +1,18 @@
+import { Component } from "solid-js"
+import { Emph } from "./Emph.civet"
+
+Rules: Component<{closeDialog: =>}> := (props) =>
+  <div .dialog-title>Règles de Catch the lion
+  <div .dialog-body>
+    <ul>
+      <li .list-disc><Emph>Catch the lion</Emph> est un jeu de plateau créé par Madoka Kitao et Maiko Fujita.
+      <li .list-disc>L&apos;éditeur du jeu est Nekomado.
+      <li .list-disc>L&apos;application a été écrite par Guillaume Bagan.
+      <li .list-disc>Le code source est sous licence MIT.
+      <li .list-disc>Les différentes images ont été générées par Dall-E.
+      <li .list-disc>Les différents sont proviennent de la plate-forme Lichess.
+      <li .list-disc>L&apos;application a été écrite dans le langage Civet à l&apos;aide des librairies Solid et Tailwind.
+  <div .dialog-buttons>
+    <button .btn onClick=props.closeDialog>OK
+
+export default Rules

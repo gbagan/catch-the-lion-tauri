@@ -1,0 +1,99 @@
+import { Component, For, createMemo, createSignal, onCleanup, onMount } from "solid-js"
+import { Transition } from "solid-transition-group"
+import { Adversary, Message } from "../model.civet"
+import { delay } from "../util.civet"
+import { tutorial } from "../tutorial.civet"
+import { Green, Blue, Red } from "./Emph.civet"
+
+const emph = (x: string) => ["B", x] as ["B", string]
+
+messages: [Message, number][] := [
+  [["Bienvenue sur l'appli ", emph("Catch the lion"), "."], 3000]
+  [[emph("Catch the lion"), " connu en japonais sous le nom ", emph("Dobutsu Shogi"), " est une variante pour enfants du Shogi."], 5000]
+  [["Le jeu a été entièrement résolu par ordinateur. Il existe ", emph("1 567 925 964"), " configurations possibles."], 5000]
+  [["Si les deux joueurs jouent de manière optimale, la victoire est assurée pour le ", emph("second"), " joueur."], 5000]
+  [["Pour apprendre les règles, tu peux clicker sur ", emph("Tutoriel"), "."], 3000]
+]
+
+type InfoComponent = Component<{
+  outcome: null | 0 | 1 | 2
+  adversary: Adversary
+  isThinking: boolean
+  tutorialStep: number | null
+  tutorialNext: =>
+  tutorialPred: =>
+}>
+
+const Info: InfoComponent = (props) =>
+  [periodicMessage, setPeriodicMessage] := createSignal<Message | null> null
+  stop .= false
+
+  onMount async () =>
+    i .= 0
+    loop
+      if stop
+        break
+      [message, d] := messages[i]
+      setPeriodicMessage message
+      await delay d
+      setPeriodicMessage null
+      i = (i + 1) % messages.length
+      await delay 1500
+
+  onCleanup => stop = true
+
+  message := createMemo =>
+    if props.tutorialStep !== null
+    then tutorial[props.tutorialStep].text
+    else if props.outcome !== null
+    then
+      if props.outcome === 2
+      then ["Oh, cette configuration de pièces a été répétée 3 fois. C'est un ", emph("match nul"), "."]
+      else if props.adversary === 'human'
+      then [`Bravo! Le joueur ${props.outcome + 1} a gagné!`]
+      else if props.outcome === 0
+      then ["Zut! J'ai perdu! Tu peux changer de difficulté en cliquant sur ", emph("Nouvelle partie"), "."]
+      else ["Oh oui! J'ai gagné! Tu peux changer de difficulté en cliquant sur ", emph("Nouvelle partie"), "."]
+    else
+      periodicMessage()
+
+  girlExpression := createMemo =>
+    if props.isThinking
+    then "bg-thinking"
+    else if props.outcome === 2
+    then "bg-surprised"
+    else if props.outcome !== null && props.outcome === 0 && props.adversary !== 'human'
+    then "bg-crying"
+    else if props.outcome !== null && (props.outcome === 1 || props.adversary === 'human')
+    then "bg-happy"
+    else "bg-speaking"
+
+  <div class=`z-20 relative w-[15rem] h-[25rem] bg-contain bg-no-repeat ${girlExpression()}`>
+    <Transition
+      onEnter={(el, done) =>
+        a := el.animate [{ opacity: 0 }, { opacity: 1 }], {duration: 500}
+        a.finished.then done
+      }
+      onExit={(el, done) =>
+        a := el.animate [{ opacity: 1 }, { opacity: 0 }], {duration: 500}
+        a.finished.then done
+      }
+    >
+      {message() &&
+        <div class="tooltip -right-5">
+          <For each={message()}>
+            {(m) =>
+              switch m
+                ["R", text] <Red>{text}
+                ["G", text] <Green>{text}
+                ["B", text] <Blue>{text}
+                else m as string
+            }
+      }
+    {props.tutorialStep !== null &&
+      <div class="absolute -right-2 flex gap-32">
+        <button .tutorial-button onClick={props.tutorialPred}>Précédent
+        <button .tutorial-button onClick={props.tutorialNext}>Suivant
+    }
+
+export default Info

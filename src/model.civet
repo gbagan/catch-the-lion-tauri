@@ -1,0 +1,119 @@
+import { countIf } from './util.civet'
+
+export type PieceType = 'L' | 'G' | 'C' | 'E' | 'H'
+type Owner = 0 | 1
+
+export type Piece =
+  type: PieceType
+  position: number | null
+  owner: Owner
+
+export PIECE_INDEX: Record<PieceType, number> :=
+  C: 0
+  E: 1
+  G: 2
+  L: 3
+  H: 4
+
+export type Adversary = "human" | "level1" | "level2" | "level3" | "level4"
+
+export type Config =
+  adversary: Adversary
+  machineStarts: boolean
+
+type Played = {pieces: Piece[], move: [number | null, number]}[]
+
+export type State =
+  pieces: Piece[]
+  config: Config
+  turn: 0 | 1
+  outcome: 0 | 1 | 2 | null
+  isThinking: boolean
+  played: Played
+  dialog: "newgame" | "rules" | "credits" | null
+  tutorialStep: null | number
+
+export type Message = (String | ["R" | "G" | "B", string])[]
+
+export function newConfig(): Config
+  adversary: "level1"
+  machineStarts: false
+
+export function initPieces(): Piece[] [
+  { type: 'E', position: 9, owner: 0 }
+  { type: 'L', position: 10, owner: 0 }
+  { type: 'G', position: 11, owner: 0 }
+  { type: 'C', position: 7, owner: 0 }
+  { type: 'E', position: 2, owner: 1 }
+  { type: 'L', position: 1, owner: 1 }
+  { type: 'G', position: 0, owner: 1 }
+  { type: 'C', position: 4, owner: 1 }
+]
+
+export function initState(): State
+  pieces: initPieces()
+  turn: 0
+  outcome: null
+  played: []
+  config: newConfig()
+  isThinking: false
+  dialog: null
+  tutorialStep: null
+
+
+export const movesDict: Record<PieceType, [number, number][]> =
+  C: [[0, 1]]
+  H: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1]]
+  G: [[0, 1], [1, 0], [0, -1], [-1, 0]]
+  E: [[1, 1], [-1, 1], [1, -1], [-1, -1]]
+  L: [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]
+
+export function possibleMoves(pieces: Piece[], piece: Piece): number[]
+  board := new Array 12
+  board.fill 0
+  for const piece2 of pieces
+    if piece2.position !== null
+      board[piece2.position] = piece2.owner + 1
+
+  if piece.position === null
+    res := []
+    for i .= 0; i < 12; i++
+      if !board[i]
+        res.push i
+    return res
+  
+  res .= []
+  x := piece.position % 3
+  y := piece.position / 3 | 0
+  moves := movesDict[piece.type]
+  for const move of moves
+    [dx, dy] := piece.owner ? [move[0], move[1]] : [-move[0], -move[1]]
+    x2 := x + dx
+    y2 := y + dy
+    if x2 >= 0 && x2 < 3 && y2 >= 0 && y2 < 4
+      index := 3 * y2 + x2
+      if board[index] !== piece.owner + 1
+        res.push index
+  res
+
+pieceEq := (piece1: Piece, piece2: Piece) =>
+  piece1.owner === piece2.owner 
+  && piece1.position === piece2.position
+  && piece1.type === piece2.type
+
+export piecesEq := (pieces1: Piece[], pieces2: Piece[]) =>
+  for i .= 0; i < 8; i++
+    if !pieceEq pieces1[i], pieces2[i]
+      return false
+  true
+
+export drawGame := (pieces: Piece[], played: Played) =>
+  countIf(played, (p) => piecesEq pieces, p.pieces) >= 2
+
+export condition2Win := (pieces: Piece[], turn: 0 | 1) =>
+  lionPosition := pieces[if turn then 5 else 1].position
+  lionPosition !== null
+    && (turn && lionPosition > 8 || !turn && lionPosition < 3) 
+    && pieces.every((piece) =>
+      piece.owner === turn || !possibleMoves(pieces, piece).includes(lionPosition)
+    )

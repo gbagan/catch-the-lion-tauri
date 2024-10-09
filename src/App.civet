@@ -1,0 +1,241 @@
+import { invoke } from "@tauri-apps/api/core"
+import { batch, Component } from 'solid-js'
+import { createStore, produce } from "solid-js/store"
+import { condition2Win, Config, Piece, drawGame, initPieces, initState, PIECE_INDEX } from './model.civet'
+import { delay, last } from './util.civet'
+import { tutorial } from './tutorial.civet'
+import Board from './components/Board.civet'
+import Info from './components/Info.civet'
+import NewGame from './components/NewGame.civet'
+import Rules from './components/Rules.civet'
+import Credits from './components/Credits.civet'
+
+type RustPiece
+  position: number,
+  kind: number,
+  owner: boolean,
+
+type Move
+  'from': number
+  to: number
+
+function pieceToRust(piece: Piece): RustPiece
+  position: piece.position ?? -1
+  owner: piece.owner === 1
+  kind: PIECE_INDEX[piece.type]
+
+App: Component := =>
+  let dialog!: HTMLDialogElement
+  let moveAudio!: HTMLAudioElement
+  let captureAudio!: HTMLAudioElement
+
+  [state, setState] := createStore initState()
+
+  requiredMove := =>
+    if state.tutorialStep === null
+      return null
+    action := tutorial[state.tutorialStep].action
+    action.type === "playerAction" ? [action.from, action.to] as [number, number] : null
+
+  playAux := (from: number, to: number) =>
+    { owner, type, position } := state.pieces[from]
+    fromPos := state.pieces[from].position
+    batch =>
+      piecesCopy := state.pieces.map { ...& }
+      setState "played", state.played.length, { pieces: piecesCopy, move: [fromPos, to] }
+      let j = state.pieces.findIndex &.position === to
+      if j >= 0 then
+        captureAudio.play()
+        setState "pieces", j, { position: null, owner }
+        setState "pieces", j, "type", (type) => if type === 'H' then 'C' else type
+        if state.pieces[j].type === 'L'
+          setState "outcome", owner
+      else
+        moveAudio.play()
+      setState("pieces", from, "position", to)
+      if type === 'C' && position !== null && (owner && to > 8 || !owner && to < 3) then
+        setState "pieces", from, "type", 'H'
+      if condition2Win(state.pieces, state.turn) then
+        setState "outcome", state.turn
+      if drawGame(state.pieces, state.played) then
+        setState "outcome", 2
+      setState "turn", (turn) => turn === 0 ? 1 : 0
+
+  machinePlays := async =>
+    depth := switch state.config.adversary
+      'level1' 2
+      'level2' 4
+      'level3' 6
+      'level4' 10
+      else 2
+
+    data :=
+      pieces: state.pieces.map pieceToRust
+      turn: state.turn === 1
+      depth: depth
+      played: state.played.map (p) => p.pieces.map pieceToRust
+    [{from, to}] := await Promise.all([invoke("shogi_ai", data), delay(1500)]) as [Move, number]
+    batch =>
+      setState("isThinking", false)
+      playAux(from, to)
+
+  play := async (from: number, to: number) =>
+    if state.config.adversary === 'human'
+      playAux(from, to)
+    else
+      batch(=>
+        playAux(from, to)
+        if state.outcome === null
+          setState("isThinking", true)
+      )
+      if state.outcome !== null
+        return
+      await machinePlays()
+
+  undo := () =>
+    if state.isThinking
+      return
+
+    setState(produce((state) =>
+      if state.played.length > 1 || state.played.length === 1 && state.config.adversary === 'human'
+        pieces := state.played.pop()!.pieces
+        state.pieces = pieces
+        state.turn = state.turn === 0 ? 1 : 0
+        state.outcome = null
+      parity := state.played.length % 2 === 0
+
+      if state.config.adversary !== 'human' && parity === state.config.machineStarts
+        pieces := state.played.pop()!.pieces
+        state.pieces = pieces
+        state.turn = state.turn === 0 ? 1 : 0
+    ))
+
+  openNewGameDialog := =>
+    if state.isThinking
+      return
+    setState "dialog", "newgame"
+    dialog.showModal()
+
+  openRulesDialog := () =>
+    setState "dialog", "rules"
+    dialog.showModal()
+
+  openCreditsDialog := =>
+    setState "dialog", "credits"
+    dialog.showModal()
+
+  closeDialog := =>
+    dialog.close()
+    setState "dialog", null
+
+  newGame := (config: Config) =>
+    setState(produce((state) =>
+      state.config = { ...config }
+      state.pieces = initPieces()
+      state.played = []
+      state.outcome = null
+      state.turn = state.config.machineStarts ? 1 : 0
+      state.isThinking = state.config.machineStarts
+      state.dialog = null
+      state.tutorialStep = null
+    ))
+    dialog.close()
+    if state.config.machineStarts && state.config.adversary !== "human"
+      machinePlays()
+
+  startTutorial := =>
+    if state.isThinking
+      return
+    setState produce (state) =>
+      state.pieces = initPieces()
+      state.played = []
+      state.outcome = null
+      state.turn = 0
+      state.isThinking = false
+      state.dialog = null
+      state.tutorialStep = 0
+
+  tutorialPred := =>
+    batch =>
+      setState "tutorialStep", (step) => Math.max(0, step! - 1)
+      if tutorial[state.tutorialStep!].action.type !== 'read'
+        setState produce (state) =>
+          state.pieces = state.played.pop()!.pieces
+          state.turn = state.turn === 1 ? 0 : 1
+
+  tutorialNext := =>
+    if state.tutorialStep === null
+      return
+    action := tutorial[state.tutorialStep].action
+    if action.type === 'playerAction'
+      return
+    batch =>
+      if action.type === 'machineAction'
+        playAux action.from, action.to
+      setState "tutorialStep", (step) => Math.min(tutorial.length - 1, step! + 1)
+
+  tutorialPlay := (from: number, to: number) =>
+    if state.tutorialStep === null
+      return
+    required := tutorial[state.tutorialStep].action
+    if required.type !== 'playerAction' || from !== required.from || to !== required.to
+      return
+    batch =>
+      playAux(from, to)
+      setState "tutorialStep", (step) => Math.min(tutorial.length - 1, step! + 1)
+
+  <audio src="./move.webm" preload="auto" ref={moveAudio} />
+  <audio src="./capture.webm" preload="auto" ref={captureAudio} />
+  <div class="relative w-screen min-h-screen bg-main bg-cover bg-no-repeat flex flew-row items-center justify-around portrait:flex-col">
+    <div class="absolute bg-white w-full h-full opacity-30 z-10 pointer-events-none" />
+    <div class="flex flex-col bg-board b-cover p-6 border-2 border-black rounded-xl gap-4 z-20">
+      <div class="text-4xl">Catch the lion
+      <button class="btn" onClick=openNewGameDialog>Nouvelle partie
+      <button class="btn" onClick=undo>Annuler
+      <button class="btn" onClick=startTutorial>Tutoriel
+      <button class="btn" onClick=openRulesDialog>Règles
+      <button class="btn" onClick=openCreditsDialog>Crédits
+    {if state.tutorialStep === null then
+      <Board
+        pieces={state.pieces}
+        turn={state.turn}
+        lastMove={last(state.played)?.move ?? null}
+        canPlay={!state.isThinking && state.outcome === null}
+        requiredMove=null
+        play={play}
+      />
+    else
+      <Board
+        pieces={state.pieces}
+        turn={state.turn}
+        lastMove={last(state.played)?.move ?? null}
+        canPlay={tutorial[state.tutorialStep].action.type === 'playerAction'}
+        requiredMove=requiredMove()
+        play={tutorialPlay}
+      />
+    }
+    <Info
+      outcome={state.outcome}
+      isThinking={state.isThinking}
+      adversary={state.config.adversary}
+      tutorialStep={state.tutorialStep}
+      tutorialNext={tutorialNext}
+      tutorialPred={tutorialPred}
+    />
+  <dialog class="dialog" ref={dialog}>
+    {switch state.dialog
+      when "newgame"
+        <NewGame
+          config={state.config}
+          closeDialog={closeDialog}
+          newGame={newGame}
+        />
+      when "rules"
+        <Rules closeDialog={closeDialog} />
+      when "credits"
+        <Credits closeDialog={closeDialog} />
+      else
+        null
+    }
+
+export default App

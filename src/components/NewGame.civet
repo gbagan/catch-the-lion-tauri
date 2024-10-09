@@ -1,0 +1,41 @@
+import { Component } from "solid-js"
+import { createStore } from "solid-js/store"
+import { Adversary, Config } from "../model.civet"
+
+type NewGameComponent = Component<{
+  config: Config
+  closeDialog: =>
+  newGame: (config: Config) =>
+}>
+
+adversaries := [["human", "Humain"], ["level1", "Débutant"], ["level2", "Moyen"], ["level3", "Difficile"], ["level4", "Expert"]]
+
+NewGame: NewGameComponent := (props) =>
+  [config, setConfig] := createStore {...props.config}
+
+  setAdversary := (name: string) => setConfig "adversary", name as Adversary
+  setMachineStarts := (b: boolean) => setConfig "machineStarts", b
+
+  <div .dialog-title>Nouvelle partie
+  <div class="dialog-body grid grid-cols-20/80 gap-8">
+    <div .text-bold.text-lg>Adversaire
+    <div .flex.gap-4>
+      {adversaries.map([name, fullname] =>
+        <button .togglebtn
+          classList={"toggledbtn": name === config.adversary}
+          onClick=[setAdversary, name]
+        > {fullname}
+      )}
+    <div .text-bold.text-lg>Qui commence
+    <div .flex.gap-4.text-lg>
+      {[false, true].map((b) =>
+        <button .togglebtn
+          classList={"toggledbtn": b === config.machineStarts}
+          onClick=[setMachineStarts, b]
+        >{b ? "Machine" : "Humain"}
+      )}
+  <div .dialog-buttons>
+    <button .btn onClick=props.closeDialog>Annuler
+    <button .btn onClick=[props.newGame, config]>OK
+
+export default NewGame
