@@ -154,36 +154,33 @@ fn evaluate_position(pieces: &Pieces) -> i32 {
 
 fn alphabeta(table: &mut Table, depth: u8, turn: bool, mut alpha: i32, mut beta: i32, pieces: Pieces) -> i32 {
     let encoding = encode_pieces(&pieces, turn);
-    //let mut tmp: Option<i32> = None;
+    let alpha_orig = alpha;
+    let beta_orig = beta;
     if let Some(&(depth2, score, flag)) = table.get(&encoding) {
         if depth2 == depth {
             match flag {
-                Flag::Exact =>
-                    return score,
-                Flag::Alpha =>
-                    if score <= alpha {
-                        return score;
-                    }
-                Flag::Beta =>
-                    if score >= beta {
-                        return score;
-                    }
+                Flag::Exact => return score,
+                Flag::Alpha => alpha = alpha.max(score),
+                Flag::Beta => beta = beta.min(score),
             }
+        }
+        if alpha >= beta {
+            return score;
         }
     }
     if depth == 0 {
         return evaluate_position(&pieces)
-    } else if pieces[1].position == 12 {
+    } else if pieces[1].position == 12 { // white Lion has been captured
         return -100000-(depth as i32)
-    } else if pieces[5].position == 12 {
+    } else if pieces[5].position == 12 { // black Lion has been captured
         return 100000+(depth as i32)
-    } else if turn && pieces[5].position > 8 {
+    } else if turn && pieces[5].position > 8 { // black Lion has reached the enemy camp
         return -100000-(depth as i32)
-    } else if !turn && pieces[1].position < 3 {
+    } else if !turn && pieces[1].position < 3 { // white Lion has reached the enemy camp
         return 100000+(depth as i32)
     }
     
-    if !turn {
+    if !turn {  // maximizing
         let mut best_score = i32::MIN;
         for mov in possible_moves(&pieces, turn) {
             let new_pieces = play_move(&pieces, mov);
@@ -194,15 +191,17 @@ fn alphabeta(table: &mut Table, depth: u8, turn: bool, mut alpha: i32, mut beta:
                 break
             }
         }
-        let flag = if alpha < beta {Flag::Exact} else {Flag::Alpha};
-        /*
-        if tmp.is_some() && tmp != Some(best_score) {
-            println!("{tmp:?} {best_score} {flag:?} {depth} {alpha} {beta}");
-        }
-        */
+        let flag = 
+            if best_score <= alpha_orig {
+                Flag::Beta
+            } else if best_score >= beta{
+                Flag::Alpha
+            } else {
+                Flag::Exact
+            };
         table.insert(encoding, (depth, best_score, flag));
-        best_score
-    } else {
+        alpha
+    } else {   // minimizing
         let mut best_score = i32::MAX;
         for mov in possible_moves(&pieces, turn) {
             let new_pieces = play_move(&pieces, mov);
@@ -213,18 +212,18 @@ fn alphabeta(table: &mut Table, depth: u8, turn: bool, mut alpha: i32, mut beta:
                 break
             }
         }
-        let flag = if alpha < beta {Flag::Exact} else {Flag::Beta};
-        /* 
-        if tmp.is_some() && tmp != Some(best_score) {
-            println!("{tmp:?} {best_score} {flag:?} {depth} {alpha} {beta}");
-        }
-        */
+        let flag = 
+        if best_score >= beta_orig {
+            Flag::Alpha
+        } else if best_score <= alpha {
+            Flag::Beta
+        } else {
+            Flag::Exact
+        };
         table.insert(encoding, (depth, best_score, flag));
-        best_score
+        beta
     }
 }
-
-
 
 
 #[tauri::command(async)]
