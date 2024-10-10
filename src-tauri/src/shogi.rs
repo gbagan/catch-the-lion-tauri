@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-
+use std::time::Instant;
 use lazy_static::lazy_static;
 
 #[repr(u8)]
@@ -213,13 +213,13 @@ fn alphabeta(table: &mut Table, depth: u8, turn: bool, mut alpha: i32, mut beta:
             }
         }
         let flag = 
-        if best_score >= beta_orig {
-            Flag::Alpha
-        } else if best_score <= alpha {
-            Flag::Beta
-        } else {
-            Flag::Exact
-        };
+            if best_score >= beta_orig {
+                Flag::Alpha
+            } else if best_score <= alpha {
+                Flag::Beta
+            } else {
+                Flag::Exact
+            };
         table.insert(encoding, (depth, best_score, flag));
         beta
     }
@@ -231,6 +231,8 @@ pub fn shogi_ai(pieces: Pieces, played: Vec<Pieces>, depth: u8, turn: bool) -> M
     let mut alpha = i32::MIN;
     let mut beta = i32::MAX;
     let mut table: Table = HashMap::new();
+
+    let start = Instant::now();
 
     let (played_twice, not_played_twice): (Vec<_>, Vec<_>) =
         possible_moves(&pieces, turn)
@@ -257,6 +259,7 @@ pub fn shogi_ai(pieces: Pieces, played: Vec<Pieces>, depth: u8, turn: bool) -> M
         }
     }
     if let Some(mov) = best_move { //&& (if turn {beta <= 0} else {alpha >= 0})
+        println!("Computing time: {}ms", start.elapsed().as_millis());
         return mov;
     }
   
@@ -275,5 +278,6 @@ pub fn shogi_ai(pieces: Pieces, played: Vec<Pieces>, depth: u8, turn: bool) -> M
             }
         }
     }
+    println!("Computing time: {}ms", start.elapsed().as_millis());
     best_move.unwrap()
 }
