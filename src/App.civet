@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core"
 import { batch, Component } from 'solid-js'
 import { createStore, produce } from "solid-js/store"
-import { condition2Win, Config, Piece, drawGame, initPieces, initState, PIECE_INDEX } from './model.civet'
+import { condition2Win, Config, Piece, drawGame, initPieces, initState, PieceType } from './model.civet'
 import { delay, last } from './util.civet'
 import { tutorial } from './tutorial.civet'
 import Board from './components/Board.civet'
@@ -10,9 +10,16 @@ import NewGame from './components/NewGame.civet'
 import Rules from './components/Rules.civet'
 import Credits from './components/Credits.civet'
 
+RUST_KIND: Record<PieceType, string> :=
+  C: "Chick"
+  E: "Elephant"
+  G: "Giraffe"
+  L: "Lion"
+  H: "Hen"
+
 type RustPiece
   position: number,
-  kind: number,
+  kind: string,
   owner: boolean,
 
 type Move
@@ -20,9 +27,9 @@ type Move
   to: number
 
 function pieceToRust(piece: Piece): RustPiece
-  position: piece.position ?? -1
+  position: piece.position ?? 12
   owner: piece.owner === 1
-  kind: PIECE_INDEX[piece.type]
+  kind: RUST_KIND[piece.type]
 
 App: Component := =>
   let dialog!: HTMLDialogElement
